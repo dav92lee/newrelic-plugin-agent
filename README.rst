@@ -150,7 +150,7 @@ MongoDB Installation Notes
 --------------------------
 You need to install the pymongo driver, either by running ``pip install pymongo`` or by following the "`Installing Additional Requirements`_" above. Each database you wish to collect metrics for must be enumerated in the configuration.
 
-There are two configuration stanza formats for MongoDB. You must use one or the other, they can not be mixed. For non-authenticated polling, you can simply enumate the databases you would like stats from as a list:
+There are two configuration stanza formats for MongoDB. You must use one or the other, they can not be mixed. For non-authenticated polling, you can simply enumerate the databases you would like stats from as a list:
 
 ::
 
