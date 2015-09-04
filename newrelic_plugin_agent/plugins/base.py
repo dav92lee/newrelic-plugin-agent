@@ -16,7 +16,7 @@ LOGGER = logging.getLogger(__name__)
 
 class Plugin(object):
 
-    GUID = 'com.meetme.newrelic_plugin_agent'
+    GUID = 'com.fivestars.DBmonitor'
     MAX_VAL = 2147483647
 
     def __init__(self, config, poll_interval, last_interval_values=None):
@@ -59,7 +59,7 @@ class Plugin(object):
             LOGGER.debug('Bypassing initial %s value for first run', metric)
             self.derive_values[metric] = self.metric_payload(0, count=0)
         else:
-            cval = value - self.derive_last_interval[metric]
+            cval = abs(value - self.derive_last_interval[metric])
             self.derive_values[metric] = self.metric_payload(cval, count=count)
             LOGGER.debug('%s: Last: %r, Current: %r, Reporting: %r',
                          metric, self.derive_last_interval[metric], value,
@@ -178,9 +178,6 @@ class Plugin(object):
         :rtype: dict
 
         """
-        if not value:
-            value = 0
-            
         if isinstance(value, basestring):
             value = 0
 
@@ -338,19 +335,16 @@ class HTTPStatsPlugin(Plugin):
         data = self.http_get()
         return data.content if data else ''
 
-    def http_get(self, url=None):
-        """Fetch the data from the stats URL or a specified one.
+    def http_get(self):
+        """Fetch the data from the stats URL
 
-        :param str url: URL to fetch instead of the stats URL
         :rtype: requests.models.Response
 
         """
         LOGGER.debug('Polling %s Stats at %s',
-                     self.__class__.__name__, url or self.stats_url)
-        req_kwargs = self.request_kwargs
-        req_kwargs.update({'url': url} if url else {})
+                     self.__class__.__name__, self.stats_url)
         try:
-            response = requests.get(**req_kwargs)
+            response = requests.get(**self.request_kwargs)
         except requests.ConnectionError as error:
             LOGGER.error('Error polling stats: %s', error)
             return ''

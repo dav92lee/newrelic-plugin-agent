@@ -18,6 +18,7 @@ available = {
     'php_fpm': 'newrelic_plugin_agent.plugins.php_fpm.FPM',
     'postgresql': 'newrelic_plugin_agent.plugins.postgresql.PostgreSQL',
     'rabbitmq': 'newrelic_plugin_agent.plugins.rabbitmq.RabbitMQ',
+    'rds': 'newrelic_plugin_agent.plugins.rds.RDS',
     'redis': 'newrelic_plugin_agent.plugins.redis.Redis',
     'riak': 'newrelic_plugin_agent.plugins.riak.Riak',
     'uwsgi': 'newrelic_plugin_agent.plugins.uwsgi.uWSGI'}
