@@ -51,6 +51,7 @@ class NewRelicPluginAgent(helper.Controller):
         self.next_wake_interval = int(self._wake_interval)
         self.publish_queue = queue.Queue()
         self.threads = list()
+        self.plugin_poll_scheduler = {}
         info = tuple([__version__] + list(self.system_platform))
         LOGGER.info('Agent v%s initialized, %s %s v%s', *info)
 
@@ -99,12 +100,15 @@ class NewRelicPluginAgent(helper.Controller):
             config = [config]
 
         for instance in config:
+            poll_interval = self._wake_interval
+            if "poll_interval" in instance:
+                poll_interval = poll_interval*instance['poll_interval']
             thread = threading.Thread(target=self.thread_process,
                                       kwargs={'config': instance,
                                               'name': plugin_name,
                                               'plugin': plugin,
                                               'poll_interval':
-                                                  int(self._wake_interval)})
+                                                  int(poll_interval)})
             thread.run()
             self.threads.append(thread)
 
@@ -189,21 +193,21 @@ class NewRelicPluginAgent(helper.Controller):
             if isinstance(data, list):
                 for component in data:
                     self.process_min_max_values(component)
-                    components.append(component)
                     metrics += len(component['metrics'].keys())
                     if metrics >= self.MAX_METRICS_PER_REQUEST:
                         self.send_components(components, metrics)
                         components = list()
                         metrics = 0
+                    components.append(component)
 
             elif isinstance(data, dict):
                 self.process_min_max_values(data)
-                components.append(data)
                 metrics += len(data['metrics'].keys())
                 if metrics >= self.MAX_METRICS_PER_REQUEST:
                     self.send_components(components, metrics)
                     components = list()
                     metrics = 0
+                components.append(data)
 
         LOGGER.debug('Done, will send remainder of %i metrics', metrics)
         self.send_components(components, metrics)
@@ -305,7 +309,11 @@ class NewRelicPluginAgent(helper.Controller):
         instance_name = "%s:%s" % (name, config.get('name', 'unnamed'))
         obj = plugin(config, poll_interval,
                      self.derive_last_interval.get(instance_name))
-        obj.poll()
+        # Update poll_scheduler dict
+        self.plugin_poll_scheduler[name] = self.plugin_poll_scheduler.get(name, 0) + int(self._wake_interval)
+        # check if it is time to poll
+        if (self.plugin_poll_scheduler[name] % int(poll_interval) == 0):
+            obj.poll()
         self.publish_queue.put((instance_name, obj.values(),
                                 obj.derive_last_interval))
 
