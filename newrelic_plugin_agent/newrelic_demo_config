@@ -1,0 +1,86 @@
+%YAML 1.2
+---
+Application:
+  license_key: <NEWRELIC LICENSE KEY>
+  wake_interval: 60
+  #newrelic_api_timeout: 10
+  #proxy: http://localhost:8080
+
+
+  rds:
+    - name: fivestarsprod-analytics-follower
+      poll_interval: 1
+      region: us-east-1
+      dbname: fivestarsprod-analytics-follower
+      access_key: <ACCESS KEY>
+      secret_key: <SECRET KEY>
+    - name: fivestarsprod-apifollower
+      poll_interval: 1
+      region: us-east-1
+      dbname: fivestarsprod-apifollower
+      access_key: <ACCESS KEY>
+      secret_key: <SECRET KEY>
+    - name: fivestarsprod-master
+      poll_interval: 1
+      region: us-east-1
+      dbname: fivestarsprod-master
+      access_key: <ACCESS KEY>
+      secret_key: <SECRET KEY>
+
+  postgresql:
+    - name: fivestarsprod-analytics-follower
+      poll_interval: 1
+      host: <host info>
+      port: <port>
+      user: <db user>
+      password: <db user password>
+      dbname: <db name>
+      superuser: False
+      relation_stats: True
+      relation_breakdown_stats: True
+    - name: fivestarsprod-apifollower
+      poll_interval: 1
+      host: <host info>
+      port: <port>
+      user: <db user>
+      password: <db user password>
+      dbname: <db name>
+      superuser: False
+      relation_stats: True
+      relation_breakdown_stats: True
+    - name: fivestarsprod-master
+      poll_interval: 1
+      host: <host info>
+      port: <port>
+      user: <db user>
+      password: <db user password>
+      dbname: <db name>
+      superuser: False
+      relation_stats: True
+      relation_breakdown_stats: True
+
+
+Daemon:
+  user: newrelic
+  pidfile: /var/run/newrelic/newrelic-plugin-agent.pid
+
+Logging:
+  formatters:
+    verbose:
+      format: '%(levelname) -10s %(asctime)s %(process)-6d %(processName) -15s %(threadName)-10s %(name) -45s %(funcName) -25s L%(lineno)-6d: %(message)s'
+  handlers:
+    file:
+      class : logging.handlers.RotatingFileHandler
+      formatter: verbose
+      filename: /var/log/newrelic/newrelic-plugin-agent.log
+      maxBytes: 10485760
+      backupCount: 3
+  loggers:
+    newrelic_plugin_agent:
+      level: INFO
+      propagate: True
+      handlers: [console, file]
+    requests:
+      level: ERROR
+      propagate: True
+      handlers: [console, file]
