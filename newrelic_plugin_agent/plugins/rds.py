@@ -96,7 +96,7 @@ class RDS(base.Plugin):
                 LOGGER.info("RDS Plugin Connection Error")
                 print "status err Error running rds_stats: %s" % e.error_message
                 sys.exit(1)
-            if len(res) > 0:
+            if len(res_weekly) > 0:
                 cur_value = float(res_weekly[-1]["Average"])
                 if dbname not in RDS.cur_time:
                     RDS.cur_time[dbname] = {}
