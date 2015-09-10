@@ -6,9 +6,11 @@ Uses boto.ec2.cloudwatch to get cloudwatch statistics from our RDS db instances
 Sends both minute statistics (for basic RDS statistics) and weekly averages (for trajectory calculations)
 
 """
+import boto.rds2
 from boto.ec2.cloudwatch import CloudWatchConnection
 import pytz, datetime, time
 import logging
+import sys
 
 
 from newrelic_plugin_agent.plugins import base
@@ -38,21 +40,28 @@ class RDS(base.Plugin):
     days_left = {}
 
 
-    def connect(self):
-        region = self.config['region']
+    def connect_cloudwatch(self):
         access_key = self.config['access_key']
         secret_key = self.config['secret_key']
 
         conn = CloudWatchConnection(access_key, secret_key)
         return conn
 
+    def connect_rds(self):
+        region = self.config['region']
+        access_key = self.config['access_key']
+        secret_key = self.config['secret_key']
+
+        conn = boto.rds2.connect_to_region(region, aws_access_key_id=access_key, aws_secret_access_key=secret_key)
+        return conn
+
     def poll(self):
         LOGGER.info("RDS poll method called")
         self.initialize()
         try:
-            self.connection = self.connect()
+            self.connection_cloudwatch = self.connect_cloudwatch()
         except:
-            LOGGER.critical('COULD NOT CONNECT TO CLOUDWATCH RDS')
+            LOGGER.critical('COULD NOT CONNECT TO CLOUDWATCH CLOUDWATCH')
             return
 
         #minute statistics
@@ -60,7 +69,7 @@ class RDS(base.Plugin):
         start = end - datetime.timedelta(minutes=5)
         for k,vh in self.metrics.items():
             try:
-                res = self.connection.get_metric_statistics(60, start, end, k, "AWS/RDS", "Average", {"DBInstanceIdentifier": self.config['dbname']}) #boto needs a good amt of leeway to get responses from amazon (5 to 1 is my estimate)
+                res = self.connection_cloudwatch.get_metric_statistics(60, start, end, k, "AWS/RDS", "Average", {"DBInstanceIdentifier": self.config['dbname']}) #boto needs a good amt of leeway to get responses from amazon (5 to 1 is my estimate)
             except Exception, e:
                 LOGGER.info("RDS Plugin Connection Error")
                 sys.exit(1)
@@ -91,12 +100,13 @@ class RDS(base.Plugin):
             end = datetime.datetime.now()
             daily_start = end- datetime.timedelta(minutes=1440)
             try:
-                res_weekly = self.connection.get_metric_statistics(86400, daily_start, end, k, "AWS/RDS", "Average", {"DBInstanceIdentifier": dbname})
+                res_weekly = self.connection_cloudwatch.get_metric_statistics(86400, daily_start, end, k, "AWS/RDS", "Average", {"DBInstanceIdentifier": dbname})
             except Exception, e:
                 LOGGER.info("RDS Plugin Connection Error")
                 print "status err Error running rds_stats: %s" % e.error_message
                 sys.exit(1)
             if len(res_weekly) > 0:
+                print "res_weekly > 0"
                 cur_value = float(res_weekly[-1]["Average"])
                 if dbname not in RDS.cur_time:
                     RDS.cur_time[dbname] = {}
@@ -105,6 +115,7 @@ class RDS(base.Plugin):
                     RDS.days_left[dbname] = {}
                 RDS.cur_time[dbname][k] = time.time()
                 if k in RDS.last_time[dbname]:
+                    print "k in RDS.last_time"
                     elapsed_time = RDS.cur_time[dbname][k] - RDS.last_time[dbname][k] #
                     space_diff = RDS.last_space[dbname][k]-cur_value
                     if space_diff > 0:
@@ -116,6 +127,26 @@ class RDS(base.Plugin):
 
                 RDS.last_space[dbname][k] = cur_value
                 RDS.last_time[dbname][k] = RDS.cur_time[dbname][k]
+
+
+
+        #requires RDS metrics
+        try:
+            self.connection_rds = self.connect_rds()
+        except Exception, e:
+            LOGGER.critical('COULD NOT CONNECT TO CLOUDWATCH RDS: %s' %e)
+            sys.exit(1)
+        try:
+            res = self.connection_rds.describe_db_instances(db_instance_identifier=self.config['dbname'])
+        except Exception, e:
+            LOGGER.info("RDS Plugin Connection Error")
+            print "status err Error running rds_stats: %s" % e
+            sys.exit(1)
+        total_space = float(res["DescribeDBInstancesResponse"]["DescribeDBInstancesResult"]["DBInstances"][0]["AllocatedStorage"]*1073741824)
+        free_space = float(self.metrics["FreeStorageSpace"]["value"])
+        used_space = total_space-free_space
+        percent_space_used = int((used_space/total_space)*100)
+        self.add_gauge_value('Disk Utilization/StorageSpaceUsedPercent', 'percent', percent_space_used)
 
         self.finish()
 
