@@ -331,6 +331,7 @@ class PostgreSQL(base.Plugin):
         :rtype: psycopg2.connection
 
         """
+        LOGGER.info('connecting to postgresql server')
         conn = psycopg2.connect(**self.connection_arguments)
         conn.set_isolation_level(extensions.ISOLATION_LEVEL_AUTOCOMMIT)
         return conn
@@ -357,9 +358,10 @@ class PostgreSQL(base.Plugin):
         try:
             self.connection = self.connect()
         except psycopg2.OperationalError as error:
-            LOGGER.critical('Could not connect to %s, skipping stats run: %s',
+            LOGGER.info('CRITICAL: Could not connect to %s, skipping stats run: %s',
                             self.__class__.__name__, error)
             return
+        LOGGER.info('connecting to postgresql %s server: success', self.__class__.__name__)
         cursor = self.connection.cursor(cursor_factory=extras.DictCursor)
         self.add_stats(cursor)
         cursor.close()
