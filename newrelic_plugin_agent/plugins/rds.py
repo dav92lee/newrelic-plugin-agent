@@ -74,6 +74,7 @@ class RDS(base.Plugin):
                 LOGGER.info("RDS Plugin Connection Error")
                 LOGGER.info(e.error_message)
                 self.add_gauge_value('Plugin Error/RDS', count, 1) 
+                return
             else:
                 latest_datetime = datetime.datetime.now() - datetime.timedelta(days=30)
                 latest_data_pt = None
@@ -106,9 +107,10 @@ class RDS(base.Plugin):
             try:
                 res_weekly = self.connection_cloudwatch.get_metric_statistics(86400, daily_start, end, k, "AWS/RDS", "Average", {"DBInstanceIdentifier": dbname})
             except Exception, e:
-                LOGGER.info('CRITICAL: RDS Plugin Connection Error')
+                LOGGER.info('CRITICAL: RDS Plugin Connection Error || CLOUDWATCH GET METRIC STATISTICS')
                 LOGGER.info(e.error_message)
                 self.add_gauge_value('Plugin Error/RDS', count, 1)
+                return
             else:
                 if len(res_weekly) > 0:
                     print "res_weekly > 0"
@@ -141,13 +143,14 @@ class RDS(base.Plugin):
         except Exception, e:
             LOGGER.info('CRITICAL: COULD NOT CONNECT TO CLOUDWATCH RDS: %s' %e)
             self.add_gauge_value('Plugin Error/RDS', count, 1)
+            return
         LOGGER.info('connecting to rds server: success')
         try:
             res = self.connection_rds.describe_db_instances(db_instance_identifier=self.config['dbname'])
         except Exception, e:
-            LOGGER.info('CRITICAL: RDS Plugin Connection Error')
-            print "status err Error running rds_stats: %s" % e
+            LOGGER.info('CRITICAL: RDS Plugin Connection Error || CONNECTION_RDS DESCRIBE DB INSTANCES: %s', e)
             self.add_gauge_value('Plugin Error/RDS', count, 1)
+            return
         else:
             total_space = float(res["DescribeDBInstancesResponse"]["DescribeDBInstancesResult"]["DBInstances"][0]["AllocatedStorage"]*1073741824)
             free_space = float(self.metrics["FreeStorageSpace"]["value"])
@@ -155,7 +158,7 @@ class RDS(base.Plugin):
                 used_space = total_space-free_space
                 percent_space_used = int((used_space/total_space)*100)
                 self.add_gauge_value('Disk Utilization/StorageSpaceUsedPercent', 'percent', percent_space_used)
-
+        LOGGER.info('RDS Poll Plugin Finished')
         self.finish()
 
         
